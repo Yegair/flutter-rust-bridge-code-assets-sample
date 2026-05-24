@@ -1,0 +1,26 @@
+name: sample_flutter_app
+description: Sample app exercising sample_flutter_lib in an app context.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.11.5 <4.0.0'
+  flutter: '>=3.41.9'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  sample_flutter_lib:
+    path: ../sample_flutter_lib
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+flutter:
+  config:
+    enable-swift-package-manager: true
+  uses-material-design: true

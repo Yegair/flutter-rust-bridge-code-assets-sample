@@ -1,0 +1,9 @@
+include: package:lints/recommended.yaml
+
+formatter:
+  page_width: 140
+  trailing_commas: preserve
+
+analyzer:
+  exclude:
+    - 'lib/src/rust/**'

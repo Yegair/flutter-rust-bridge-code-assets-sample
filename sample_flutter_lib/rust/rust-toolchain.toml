@@ -1,0 +1,16 @@
+# Used by native_toolchain_rust when the build hook runs (flutter test / flutter build).
+# Keep channel in sync with the rust version in mise.toml.
+[toolchain]
+channel = "1.86.0"
+targets = [
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
+  "aarch64-apple-ios",
+  "aarch64-apple-ios-sim",
+  "x86_64-apple-ios",
+  "armv7-linux-androideabi",
+  "aarch64-linux-android",
+  "x86_64-linux-android",
+  "aarch64-unknown-linux-gnu",
+  "x86_64-unknown-linux-gnu",
+]

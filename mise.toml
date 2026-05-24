@@ -1,0 +1,154 @@
+[tools]
+"cargo:flutter_rust_bridge_codegen" = "2.12.0"
+flutter = "3.41.9"
+dart = "3.11.5"
+rust = "1.86.0"
+jq = "1.7"
+
+[env]
+FLUTTER_ROOT = { value = "{{exec(command='mise where flutter')}}", tools = true }
+
+[hooks]
+postinstall = [
+  "cargo fetch",
+  "cd sample_flutter_lib && flutter pub get",
+  "cd sample_flutter_app && flutter pub get",
+]
+
+[tasks.build]
+description = "Generate Dart bindings for the Rust library"
+dir = "sample_flutter_lib"
+run = [
+  "rm -rf lib/src/rust/",
+  "mkdir -p lib/src/rust/",
+  "flutter_rust_bridge_codegen generate",
+  "dart format lib/src/rust/ --output=write",
+  "cd rust && cargo build",
+]
+
+[tasks.check]
+description = "Run formatting, lints, and analysis"
+run = [
+  "cargo fmt --all -- --check",
+  "cargo clippy --workspace --all-targets",
+  "cd sample_flutter_lib && dart format lib test --output=none --set-exit-if-changed",
+  "cd sample_flutter_lib && dart analyze",
+  "cd sample_flutter_app && dart format lib test integration_test --output=none --set-exit-if-changed",
+  "cd sample_flutter_app && dart analyze",
+]
+
+[tasks.test]
+description = "Run Rust and Flutter tests"
+run = [
+  "cargo test",
+  "cd sample_flutter_lib && flutter test",
+  "cd sample_flutter_app && flutter test",
+]
+
+[tasks.integration-test]
+description = "Run Flutter integration tests on a device or simulator"
+dir = "sample_flutter_app"
+usage = 'flag "-d --device <device>" help="Flutter device ID (interactive picker if omitted)"'
+interactive = true
+run = '''
+{% raw %}
+#!/usr/bin/env bash
+set -euo pipefail
+
+device="${usage_device:-}"
+devices_json="$(flutter devices --machine)"
+
+if [[ -z "$device" ]]; then
+  mapfile -t devices < <(jq -r '.[] | "\(.name)\t\(.id)\t\(.targetPlatform)"' <<< "$devices_json")
+
+  if [ "${#devices[@]}" -eq 0 ]; then
+    echo "No Flutter devices found."
+    exit 1
+  fi
+
+  echo "Available devices:"
+  for i in "${!devices[@]}"; do
+    name="$(cut -f1 <<< "${devices[$i]}")"
+    id="$(cut -f2 <<< "${devices[$i]}")"
+    platform="$(cut -f3 <<< "${devices[$i]}")"
+    printf "%2d) %s (%s, %s)\n" $((i + 1)) "$name" "$id" "$platform"
+  done
+
+  while true; do
+    read -rp "Choose a device [1-${#devices[@]}]: " idx
+    if [[ "$idx" =~ ^[0-9]+$ ]] && [ "$idx" -ge 1 ] && [ "$idx" -le "${#devices[@]}" ]; then
+      break
+    fi
+    echo "Invalid selection. Please try again."
+  done
+
+  chosen_index=$((idx - 1))
+  device="$(cut -f2 <<< "${devices[$chosen_index]}")"
+  echo "Using device: $device"
+fi
+
+target_platform="$(jq -r --arg id "$device" '.[] | select(.id == $id) | .targetPlatform' <<< "$devices_json" | head -n 1)"
+
+case "$target_platform" in
+  android-*)
+    echo "Android device selected. Flutter will use the standard debug signing configuration."
+    ;;
+  ios)
+    if [[ -z "${APPLE_DEVELOPMENT_TEAM:-}" ]]; then
+      mapfile -t signing_identities < <(
+        security find-identity -v -p codesigning 2>/dev/null |
+          sed -En 's/.*"(Apple (Development|Distribution): .*) \(([A-Z0-9]+)\)".*/\3\t\1/p' |
+          sort -u
+      )
+
+      if [ "${#signing_identities[@]}" -eq 0 ]; then
+        echo "No local Apple signing identity found; iOS signing may fail." >&2
+      elif [ "${#signing_identities[@]}" -eq 1 ]; then
+        APPLE_DEVELOPMENT_TEAM="${signing_identities[0]%%$'\t'*}"
+      else
+        echo "Available Apple signing teams:"
+        for i in "${!signing_identities[@]}"; do
+          team="${signing_identities[$i]%%$'\t'*}"
+          label="${signing_identities[$i]#*$'\t'}"
+          printf "%2d) %s (%s)\n" $((i + 1)) "$label" "$team"
+        done
+
+        while true; do
+          read -rp "Choose a signing team [1-${#signing_identities[@]}]: " team_idx
+          if [[ "$team_idx" =~ ^[0-9]+$ ]] && [ "$team_idx" -ge 1 ] && [ "$team_idx" -le "${#signing_identities[@]}" ]; then
+            break
+          fi
+          echo "Invalid selection. Please try again."
+        done
+
+        APPLE_DEVELOPMENT_TEAM="${signing_identities[$((team_idx - 1))]%%$'\t'*}"
+      fi
+    fi
+
+    if [[ -n "${APPLE_DEVELOPMENT_TEAM:-}" ]]; then
+      team_suffix="$(tr '[:upper:]' '[:lower:]' <<< "$APPLE_DEVELOPMENT_TEAM")"
+      bundle_identifier="${SAMPLE_APP_BUNDLE_IDENTIFIER:-io.github.flutterRustBridgeCodeAssetsSample.sampleFlutterApp.$team_suffix}"
+      cat > ios/Flutter/LocalSigning.xcconfig <<EOF
+APPLE_DEVELOPMENT_TEAM = $APPLE_DEVELOPMENT_TEAM
+SAMPLE_APP_BUNDLE_IDENTIFIER = $bundle_identifier
+EOF
+      echo "Wrote local iOS signing settings to ios/Flutter/LocalSigning.xcconfig."
+    fi
+    ;;
+  darwin)
+    echo "macOS device selected."
+    ;;
+  "")
+    echo "Could not determine target platform for device '$device'." >&2
+    exit 1
+    ;;
+  *)
+    echo "Unsupported integration-test target platform '$target_platform' for device '$device'." >&2
+    echo "Choose an Android, iOS, or macOS device." >&2
+    exit 1
+    ;;
+esac
+
+flutter test integration_test/ -d "$device"
+{% endraw %}
+'''

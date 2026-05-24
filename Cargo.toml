@@ -1,0 +1,6 @@
+[workspace]
+resolver = "3"
+members = [
+    "sample_rust_lib",
+    "sample_flutter_lib/rust",
+]

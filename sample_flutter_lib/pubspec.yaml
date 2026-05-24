@@ -1,0 +1,21 @@
+name: sample_flutter_lib
+publish_to: 'none'
+description: Dart/Flutter bindings for the sample Rust library using flutter_rust_bridge and code assets.
+version: 0.1.0
+
+environment:
+  sdk: '>=3.11.5 <4.0.0'
+  flutter: '>=3.41.9'
+
+dependencies:
+  code_assets: ^1.0.0
+  flutter_rust_bridge: 2.12.0
+  hooks: ^1.0.0
+  native_toolchain_rust: ^1.0.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  lints: ^6.0.0

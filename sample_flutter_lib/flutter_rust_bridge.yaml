@@ -1,0 +1,15 @@
+rust_input: crate::api
+
+rust_root: rust/
+
+dart_output: lib/src/rust
+
+local: true
+
+web: false
+
+dart_entrypoint_class_name: SampleFlutterLib
+
+stop_on_error: true
+
+type_64bit_int: true

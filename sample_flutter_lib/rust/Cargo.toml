@@ -1,0 +1,11 @@
+[package]
+name = "sample_flutter_lib"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+sample_rust_lib = { path = "../../sample_rust_lib" }
+flutter_rust_bridge = "=2.12.0"
